@@ -1,6 +1,6 @@
 # dronekit_control
 
-didn't tested this one with sitl. might be a lot of bugs, but i'm tired.
+didn't test this one with sitl. might be a lot of bugs, but i'm tired.
 
 ### DroneSide - RPi3 
 
