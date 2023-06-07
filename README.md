@@ -2,19 +2,19 @@
 
 didn't test this one with sitl. might be a lot of bugs, but i'm tired.
 
-### DroneSide - RPi3 
-
 TODO:
-''
+```
 Add new commands
 Implemet pause/resume functionality
-''
+```
 
 TOFIX?:
-''
+```
 arm_and_takeoff: it waits for arm to succeed which delay main loop until it'll finishes
 callback_change_mode requires to wait 3 seconds to for mode change check
-''
+```
+
+## DroneSide - RPi3 
 
 run.py on startup
 ```
@@ -44,7 +44,7 @@ droneQueue.py
 |- Simple class for commands queue. Perhaps will move it to myVehicle class in commands.py
 ```
 
-### SenderSide - PC                             
+## SenderSide - PC                             
 
 sender.py
 ```
