@@ -1,6 +1,20 @@
 # dronekit_control
 
+didn't tested this one with sitl. might be a lot of bugs, but i'm tired.
+
 ### DroneSide - RPi3 
+
+TODO:
+''
+Add new commands
+Implemet pause/resume functionality
+''
+
+TOFIX?:
+''
+arm_and_takeoff: it waits for arm to succeed which delay main loop until it'll finishes
+callback_change_mode requires to wait 3 seconds to for mode change check
+''
 
 run.py on startup
 ```
@@ -8,14 +22,14 @@ run.py on startup
 |- Starting reciever.py to get commands from SenderSide
 |- Checking for new commands 
 |- Executing commands 
+|- Special commands: skip, clear (queue), pause, resume          <--- TODO
 |- Each command returns a unique callback to verify its success  <--- TODO
-|- Check for stop signal                                         <--- TODO
 ```
 
 reciever.py
 ```
 |- Constantly trying to connect to sender and get new commands
-|- Send new commands to queue <--- TOFIX (implemented this in main loop, now I want it being independent for stop signal)      
+|- Sends new commands to queue
 ```
 
 commands.py

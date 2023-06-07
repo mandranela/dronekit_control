@@ -1,9 +1,9 @@
-import socket
 import os
+import socket
 import json
 import time
-from droneQueue import DroneQueue
 
+import queue
 
 # Receiver IP address and port
 RECEIVER_IP = "127.0.0.1"
@@ -15,14 +15,6 @@ sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 sock.bind((RECEIVER_IP, RECEIVER_PORT))
 sock.settimeout(5)
 
-# Initialize the queue
-queue = DroneQueue()
-
-# # Directory path to save received JSON files
-# RECEIVED_FILES_DIRECTORY = "./received"
-# # Create the received files directory if it doesn't exist
-# if not os.path.exists(RECEIVED_FILES_DIRECTORY):
-#     os.makedirs(RECEIVED_FILES_DIRECTORY)
 
 # Infinite loop for connection
 while True:
@@ -53,16 +45,8 @@ while True:
                 # Convert the JSON string to data
                 json_data = json.loads(json_str)
 
-                queue.add_to_queue(json_data)
-
-                # Saving json as file
-                # # Generate a unique file name for the received JSON file
-                # file_name = f"received_{int(time.time())}.json"
-                # # Write the JSON data to a file
-                # file_path = os.path.join(RECEIVED_FILES_DIRECTORY, file_name)
-                # with open(file_path, "w", encoding="utf-8") as file:
-                #     json.dump(json_data, file)
-                # print(f"Received JSON file: {file_name}")
+                queue.append_to_queue(json_data)
+                print(f"Received command: " + ', '.join([f'{key}: {value}' for key, value in json_data.items()]))
 
             except (ValueError, json.JSONDecodeError):
                 print("Invalid data received. Skipping...")

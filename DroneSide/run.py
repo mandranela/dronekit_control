@@ -1,67 +1,117 @@
 """
-Shoud be executed on RPi3 startup 
-
+Shoud be executed on RPi3 startup. 
+Will run reciever.py, connect to drone, execute commands.
+Callback answers: success - vehicle сompleted command, ongoing - vehicle is executing command, failure - command cannot be finished.
 """
 
+import os
+import json
 import time
 import threading
 import subprocess
 
+from src import queue
 from src.commands import MyVehicle, connect_vehicle
-from src.droneQueue import DroneQueue
+
+QUEUE_PATH = "./queue.txt"
+
+# Start receiver.py as a subprocess
+def start_receiver():
+    subprocess.call(["python", "./src/receiver.py"])
+
+# Start the receiver.py in a separate thread
+receiver_thread = threading.Thread(target=start_receiver)
+receiver_thread.start()
 
 # Connect to vehicle on startup
 vehicle = connect_vehicle()
-
-
-def start_receiver():
-    # Start receiver.py as a subprocess
-    subprocess.call(["python", "./src/receiver.py"])
-
-
-# Start the receiver script in a separate thread
-receiver_thread = threading.Thread(target=start_receiver)
-receiver_thread.start()
 
 # Alais for commands
 functions = {
     "arm_and_takeoff": MyVehicle.arm_and_takeoff,
     "takeoff": MyVehicle.arm_and_takeoff,
     "fly": MyVehicle.fly,
-    "yaw": MyVehicle.yaw
+    "yaw": MyVehicle.yaw,
+    "change_mode": MyVehicle.change_mode,
+    "mode_change": MyVehicle.change_mode,
 }
 
-# Initializing queue
-queue = DroneQueue()
+# Initialize current command variable, pause status and callback for commands
+pause_status = False
+current_command = None
+callback_command = None
 
-
-# The following is not working yet because I can't run vehicle.func since func isn't
+# Main loop
 while True:
-    # Check if drone is currently idle
-    if not queue.current_command:
-        queue.next_command()
-        time.sleep(0.1)
+    # Checking for queue special commands: pause, resume, skip, clear. 
+    if queue.check_command('pause'):
+        if not current_command or not callback_command:
+            print("Pause: No command is currently executing. Skipping command.")
+        else:
+            # TODO: Implement pause command. Pause current command with capability to comtinue it in future with resume command.
+            pause_status = True
+            print("Pause: Command was successfully paused.")
+        queue.delete_command('pause')
+
+    elif queue.check_command('resume'):
+        if not pause_status:
+            print("Resume: No commands were paused. Skipping command.")
+        elif not current_command or not callback_command:
+            print("ERROR: Resume: current_command or callback_command is missing. Skipping command.")
+        else:
+            # TODO: Implement resume command. Resume paused command.
+            pause_status = False
+            print("Resume: Command was successfully Resumed.")
+        queue.delete_command('resume')
+
+    elif queue.check_command('clear'):
+        queue.clear_queue()
+        print("NOTICE: Queue cleared.") 
+    
+    elif queue.check_command('skip'):
+        if not current_command or not callback_command:
+            print("skip: No command is currently executing. Skipping command.")
+        else:
+            current_command = None
+            callback_command = None
+            print("Skip: Command was successfully skipped.")
+        queue.delete_command('skip')
+            
+    
+    # Check if vehicle is idle. 
+    # Existence of a callback_command implies that current_command is being executed right now.
+    # (WARNING: callback_command MUST BE RESET TO None when callback_command return "success" or "failure". ALL command functions should have callback. Otherwise, exception should be wroted there. )
+    elif not callback_command:
+        # Check if current command is picked
+        if not current_command:
+            # Try to pick a new command (None if queue is empty)
+            current_command = queue.pop_queue()
+        else:
+            # Get command function
+            func_name = current_command["command"]
+            # Check if command is in alais dictionary
+            if func_name in functions:
+                # Get function and arguments
+                func = functions[func_name]
+                args = {k: v for k, v in current_command.items() if k != 'command'}
+                # Call function and get callback to check command status 
+                callback_command = getattr(vehicle, func_name)(**args)
+            else:
+                # Skip unknown command 
+                print("WARNING: Unknown command. Skiped.")
+    
+    # Checking command status. 
+    # Existence of a callback_command implies that current_command is being executed right now.
     else:
-        func_name = queue.current_command["command"]
-        if func_name in functions:
-            func = functions[func_name]
-            args = {k: v for k, v in queue.current_command.items() if k != 'command'}
-
-            print(f"{func_name} returned: {getattr(vehicle, func_name)(**args)}")
-
-            queue.current_command = None
-
-        # WIERD DYNAMIC PROGRAMMING !!! NOT SAFE AT ALL !!!
-        # func_name = queue.current_command["command"]
-        # if func_name in globals():
-        #     func_args = ', '.join([f"{k}='{v}'" for k, v in a.items() if k != 'command'])
-        #     exec(f"{func_name}({func_args})")
-
-
-# vehicle.groundspeed = 1
-# vehicle.arm_and_takeoff()   # May take a while. 36 seconds to become armable on sitl (simulation)
-# vehicle.fly("north", 5)
-# vehicle.yaw(50)
-# vehicle.fly("left", 3)
-# vehicle.land()
-# vehicle.close()
+        # Calling current command's callback to check command status
+        callback_output = callback_command(vehicle)
+        
+        if callback_output == 'success':
+            current_command = None
+            callback_command = None
+            print("Command finished: " + ', '.join([f'{key}: {value}' for key, value in current_command.items()]))
+        
+        elif callback_output == 'failure':
+            current_command = None
+            callback_command = None
+            print("WARNING: Command failed. Skiped.")
