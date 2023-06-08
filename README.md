@@ -1,20 +1,20 @@
 # dronekit_control
 
-didn't tested this one with sitl. might be a lot of bugs, but i'm tired.
-
-### DroneSide - RPi3 
+seems to not be working in windows. use wsl2/linux.
 
 TODO:
-''
+```
 Add new commands
 Implemet pause/resume functionality
-''
+```
 
 TOFIX?:
-''
+```
 arm_and_takeoff: it waits for arm to succeed which delay main loop until it'll finishes
-callback_change_mode requires to wait 3 seconds to for mode change check
-''
+callback_change_mode requires to wait 0.2 seconds to for mode change check
+```
+
+## DroneSide - RPi3 
 
 run.py on startup
 ```
@@ -23,7 +23,7 @@ run.py on startup
 |- Checking for new commands 
 |- Executing commands 
 |- Special commands: skip, clear (queue), pause, resume          <--- TODO
-|- Each command returns a unique callback to verify its success  <--- TODO
+|- Each command returns a unique callback to verify its success
 ```
 
 reciever.py
@@ -36,7 +36,7 @@ commands.py
 ```
 |- Functions for actions, checking distances, telemetry, etc.
 |- myVehicle extended Vehicle class with commands for actions. Probably should separate from non-class functions  
-|- Each command returns a unique callback to verify its success  <--- TODO
+|- Each command returns a unique callback to verify its success
 ```
 
 droneQueue.py
@@ -44,7 +44,7 @@ droneQueue.py
 |- Simple class for commands queue. Perhaps will move it to myVehicle class in commands.py
 ```
 
-### SenderSide - PC                             
+## SenderSide - PC                             
 
 sender.py
 ```
