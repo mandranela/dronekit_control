@@ -23,7 +23,7 @@ run.py on startup
 |- Checking for new commands 
 |- Executing commands 
 |- Special commands: skip, clear (queue), pause, resume          <--- TODO
-|- Each command returns a unique callback to verify its success  <--- TODO
+|- Each command returns a unique callback to verify its success
 ```
 
 reciever.py
@@ -36,7 +36,7 @@ commands.py
 ```
 |- Functions for actions, checking distances, telemetry, etc.
 |- myVehicle extended Vehicle class with commands for actions. Probably should separate from non-class functions  
-|- Each command returns a unique callback to verify its success  <--- TODO
+|- Each command returns a unique callback to verify its success
 ```
 
 droneQueue.py
