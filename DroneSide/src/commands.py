@@ -2,7 +2,7 @@ import argparse
 import time
 import math
 from pymavlink import mavutil
-from dronekit import connect, Vehicle, VehicleMode, LocationGlobal, LocationGlobalRelative
+from dronekit import connect, Vehicle, VehicleMode, LocationGlobalRelative
 
 
 def connect_vehicle(connection_string=None):
@@ -45,15 +45,21 @@ class MyVehicle(Vehicle):
         """
 
         print("Basic pre-arm checks")
-
         # Don't try to arm until autopilot is ready
         time_counter = 0
         while not self.is_armable:
-            print(f"\r Waiting for vehicle to initialise | {time_counter} seconds passed.", end='')
+            print(f"Waiting for vehicle to become armable...")
             time_counter += 1
             time.sleep(1)
-
+        
         print("\nArming motors")
+        
+        # Don't try to arm until autopilot is ready
+        while not self.is_armable:
+            print(" Waiting for vehicle to initialise...")
+            time.sleep(1)
+
+        print("Arming motors")
         # Copter should arm in GUIDED mode
         self.mode = VehicleMode("GUIDED")
         self.armed = True
@@ -62,54 +68,65 @@ class MyVehicle(Vehicle):
         while not self.armed:
             print(" Waiting for arming...")
             time.sleep(1)
+        
+        # # Confirm vehicle armed and in GUIDED mode before attempting to take off
+        # while not self.armed and self.mode.name != "GUIDED":
+        #     # Arm befor takeoff 
+        #     self.armed = True
+        #     # Vehicle should takeoff in GUIDED mode
+        #     self.mode = VehicleMode("GUIDED")
+        #     print(" Waiting for arming...")
+        #     time.sleep(1)
 
+        original_alt = self.location.global_relative_frame.alt
+        
         print("Taking off!")
         self.simple_takeoff(target_alt)  # Take off to target altitude
 
         def callback_arm_and_takeoff(self):
             print(f"\r Altitude: {self.location.global_relative_frame.alt}", end="")
             # Break and return from function just below target altitude.
-            if self.location.global_relative_frame.alt:
-                if is_location_reached_relative:
+            try:
+                if is_altitude_reached_relative(original_alt, self.location.global_relative_frame.alt, target_alt):
                     print("\nSUCCESS: arm_and_takeoff command: Reached target altitude.")
                     return "success"
                 else:
                     return "ongoing"
-            else:
-                print("FAILURE: arm_and_takeoff command: Vehicle do NOT have altitide attribute (location.global_relative_frame.alt).")
+            except Exception as e:
+                print(f"FAILURE: arm_and_takeoff command: Exception catched: \n{e}")
                 return "failure"
 
         return callback_arm_and_takeoff
 
 
-    def fly(self, direction, disctance):
+    def fly(self, direction="forward", distance=0.1):
         # Fly. Docs to be added
         original_location = self.location.global_relative_frame
 
         target_location = original_location
 
         if direction == "north":
-            target_location = get_location_cardinal(original_location, disctance, 0)
+            target_location = get_location_cardinal(original_location, distance, 0)
         elif direction == "south":
-            target_location = get_location_cardinal(original_location, -disctance, 0)
+            target_location = get_location_cardinal(original_location, -distance, 0)
         elif direction == "east":
-            target_location = get_location_cardinal(original_location, 0, disctance)
+            target_location = get_location_cardinal(original_location, 0, distance)
         elif direction == "west":
-            target_location = get_location_cardinal(original_location, 0, -disctance)
+            target_location = get_location_cardinal(original_location, 0, -distance)
 
         elif direction == "forward":
-            target_location = get_location_heading(original_location, 0, -disctance)
+            target_location = get_location_heading(original_location, 0, -distance)
         elif direction == "backward":
-            target_location = get_location_heading(original_location, 0, -disctance)
+            target_location = get_location_heading(original_location, 0, -distance)
         elif direction == "right":
-            target_location = get_location_heading(original_location, 0, -disctance)
+            target_location = get_location_heading(original_location, 0, -distance)
         elif direction == "left":
-            target_location = get_location_heading(original_location, 0, -disctance)
+            target_location = get_location_heading(original_location, 0, -distance)
 
         elif direction == "up":
-            target_location.alt += disctance
+            target_location.alt += distance
         elif direction == "down":
-            target_location.alt -= disctance
+            target_location.alt -= distance
 
         # Check if the vehicle is armed and in GUIDED mode
         if not self.armed:
@@ -138,8 +155,8 @@ class MyVehicle(Vehicle):
         
         return callback_fly
 
-    def yaw(self, heading, relative=True):
-        
+
+    def yaw(self, heading=180, relative=True):        
         """
         Send MAV_CMD_CONDITION_YAW message to point vehicle at a specified heading (in degrees).
 
@@ -171,13 +188,14 @@ class MyVehicle(Vehicle):
             if not self.heading:
                 print("FAILURE: yaw command: Drone do NOT have heading attribute! ")
                 return 'failure'
-            elif is_heading_reached_relative(original_heading, self.heading, target_heading):
+            elif is_heading_reached_absolute(original_heading, self.heading, target_heading):
                 print("\nSUCCESS: yaw command: Reached target heading.")
                 return 'success'
             else:
                 return 'ongoing'
         
         return callback_yaw
+
 
     def land(self):
         self.mode = VehicleMode("LAND")
@@ -193,7 +211,22 @@ class MyVehicle(Vehicle):
         
         return callback_land
 
-    def change_mode(self, mode_name):
+
+    def RTL(self):
+        self.mode = VehicleMode("RTL")
+        
+        def callback_RTL(self):
+            if self.mode.name != "RTL":
+                return "failure"
+            elif is_location_reached_absolute(self.location.global_frame, self.home_location):
+                return "success"
+            else:
+                return "ongoing"
+
+        return callback_RTL
+    
+
+    def change_mode(self, mode):
         modes = [
                     "Acro",
                     "Altitude Hold",
@@ -222,14 +255,14 @@ class MyVehicle(Vehicle):
                     "ZigZag"
                 ]
         
-        if mode_name.upper() in [i.upper() for i in modes]:
-            self.mode = VehicleMode(mode_name.upper())
+        if mode.upper() in [i.upper() for i in modes]:
+            self.mode = VehicleMode(mode.upper())
         
         def callback_change_mode(self):
-            # !!! THERE IS NO WAY TO CHECK IF VEHICLE ACCEPTED NEW MODE OR STILL TRYING TO CHANGE IT.
-            # so we will wait 3 seconds and if it no changed then we consider this a failure. goddammit this delay is huge.
-            time.sleep(3)
-            if self.mode.name.upper() == mode_name.upper():
+            # NOTE: There is should be better way to check if vehicle accepted/declined or still trying to process mode change.
+            # But I don't find one, so for now we will wait 0.2 seconds and if it didn't change then we consider this as a failure.
+            time.sleep(0.2)
+            if self.mode.name.upper() == mode.upper():
                 return "success"
             else:
                 return "failure"
@@ -237,34 +270,70 @@ class MyVehicle(Vehicle):
         return callback_change_mode
         
 
-def is_heading_reached_relative(original_heading, current_heading, target_heading):
+# NOTE: 5% seems to be too much. TBH count this relatively is kinda stoopid. Use absolute instead
+def is_heading_reached_relative(original_heading, current_heading, target_heading, PRECISION_RELATIVE = 0.05):
     '''
-    This function checks if the current heading of a vehicle is within 5% of the distance between original and target heading.
+    This function checks if the current heading of a vehicle is within 5% of the angle between original and target heading.
 
     :param original_location: Initial position of vehicle.   
     :param current_location: Current position of vehicle.   
     :param target_location: Target location that the vehicle needs to reach.   
 
     :return bool: True if the vehicle has reached the target location, otherwise it returns False.
-    '''
-    CLOSE_ENOUGH = 0.05
-    
+    '''    
     current_angle = abs(target_heading - current_heading) % 360
     current_angle = min(current_angle, 360 - current_angle)
     
     full_angle = abs(target_heading - original_heading) % 360
     full_angle = min(full_angle, 360 - full_angle)
     
-    if current_angle < full_angle * CLOSE_ENOUGH:
+    if current_angle < full_angle * PRECISION_RELATIVE:
         return True
     else:
         return False
+
+
+def is_heading_reached_absolute(original_heading, current_heading, target_heading, PRECISION_ABSOLUTE = 1):
+    '''
+    This function checks if the current heading of a vehicle is within 1 degree of the angle between original and target heading.
+
+    :param original_location: Initial position of vehicle.   
+    :param current_location: Current position of vehicle.   
+    :param target_location: Target location that the vehicle needs to reach.   
+
+    :return bool: True if the vehicle has reached the target location, otherwise it returns False.
+    '''    
+    current_angle = abs(target_heading - current_heading) % 360
+    current_angle = min(current_angle, 360 - current_angle)
     
+    full_angle = abs(target_heading - original_heading) % 360
+    full_angle = min(full_angle, 360 - full_angle)
+    
+    if abs(full_angle - current_angle) < PRECISION_ABSOLUTE:
+        return True
+    else:
+        return False
+
+
+def is_altitude_reached_relative(original_alt, current_alt, target_alt, PRECISION_RELATIVE = 0.05):    
+    if abs(current_alt - target_alt) < abs(target_alt - original_alt) * PRECISION_RELATIVE:
+        return True
+    else:
+        return False
+
+
+def is_altitude_reached_absolute(original_alt, current_alt, target_alt, PRECISION_ABSOLUTE = 1):    
+    if abs(current_alt - target_alt) < abs(target_alt - original_alt) * PRECISION_ABSOLUTE:
+        return True
+    else:
+        return False
+
 
 def is_location_reached_relative(
-        original_location: LocationGlobalRelative,
-        current_location: LocationGlobalRelative,
-        target_location: LocationGlobalRelative
+    original_location: LocationGlobalRelative, 
+    current_location:  LocationGlobalRelative, 
+    target_location:   LocationGlobalRelative,
+    PRECISION_RELATIVE = 0.05
 ):
     '''
     This function checks if the current location of a vehicle is within 5% of the distance between original and target location.
@@ -275,39 +344,31 @@ def is_location_reached_relative(
 
     :return bool: True if the vehicle has reached the target location, otherwise it returns False.
     '''
-    CLOSE_ENOUGH = 0.05
 
-    if get_distance_metres(original_location, target_location) * CLOSE_ENOUGH > \
-            get_distance_metres(current_location, target_location):
+    if  get_distance_metres(current_location, target_location) < \
+        get_distance_metres(original_location, target_location) * PRECISION_RELATIVE:
         return True
     else:
         return False
 
 
-def is_location_reached_absolute(
-    current_location: LocationGlobalRelative,
-    target_location: LocationGlobalRelative
-):
+def is_location_reached_absolute(current_location: LocationGlobalRelative, target_location: LocationGlobalRelative, PRECISION_ABSOLUTE = 1):
     '''
-    This function checks if the current location of a vehicle is within 0.2 meters of the target location.
+    This function checks if the current location of a vehicle is within 1 meters of the target location.
 
     :param current_location: Current position of vehicle.   
     :param target_location: Target location that the vehicle needs to reach.   
 
     :return bool: True if the vehicle has reached the target location, otherwise it returns False.
     '''
-    CLOSE_ENOUGH = 0.2
 
-    if get_distance_metres(current_location, target_location) < CLOSE_ENOUGH:
+    if get_distance_metres(current_location, target_location) < PRECISION_ABSOLUTE:
         return True
     else:
         return False
 
 
-def get_distance_metres(
-    aLocation1: LocationGlobalRelative,
-    aLocation2: LocationGlobalRelative
-):
+def get_distance_metres(aLocation1: LocationGlobalRelative, aLocation2: LocationGlobalRelative):
     """
     Returns the ground distance in metres between two LocationGlobal objects.
 
@@ -324,17 +385,16 @@ def get_distance_metres(
 
 def get_location_heading(original_location: LocationGlobalRelative, distance, heading):
     """
-    Move the vehicle forward by a given distance (in meters) based on its current heading.
-
-    :param vehicle: The Vehicle object for the drone.
-    :param distance: The distance (in meters) to move the vehicle forward.
+    Returns a LocationGlobal object containing the latitude/longitude `distance` metres 
+    towards `heading` angle (where 0 is north) from the specified `original_location`. 
+    The returned Location has the same `alt` value as `original_location`.
     """
     # Calculate the distance in cardinal directions
     dNorth = distance * math.cos(heading)
     dEast = distance * math.sin(heading)
 
     # Calculate the target location based on the current location, distance, and heading using cardinal directions
-    return (get_location_cardinal(original_location, dNorth, dEast))
+    return get_location_cardinal(original_location, dNorth, dEast)
 
 
 def get_location_cardinal(original_location: LocationGlobalRelative, dNorth, dEast):
@@ -359,4 +419,4 @@ def get_location_cardinal(original_location: LocationGlobalRelative, dNorth, dEa
     newlat = original_location.lat + (dLat * 180 / math.pi)
     newlon = original_location.lon + (dLon * 180 / math.pi)
 
-    return LocationGlobal(newlat, newlon, original_location.alt)
+    return LocationGlobalRelative(newlat, newlon, original_location.alt)

@@ -12,7 +12,7 @@ is_empty()        -> bool       returns boolean indicating if queue is empty
 import time
 import json 
 
-QUEUE_PATH = 'queue.txt'
+QUEUE_PATH = './src/queue.txt'
 
 
 def queue_operation(operation):
@@ -102,7 +102,7 @@ def clear_queue(f):
 @queue_operation
 def delete_command(f, command):
     # Delete all certain commands from the queue
-    queue = json.loads(f)
+    queue = json.load(f)
     queue = [item for item in queue if not (item.get("command") == command)]
     
     # Write updated queue back to the file
@@ -117,7 +117,7 @@ def delete_command(f, command):
 @queue_operation
 def check_command(f, command):
     # Check if a certain commands in the queue
-    queue = json.loads(f)
+    queue = json.load(f)
     
     # Check for commands
     if any(item.get("command") == command for item in queue):

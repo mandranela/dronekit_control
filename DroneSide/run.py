@@ -13,7 +13,7 @@ import subprocess
 from src import queue
 from src.commands import MyVehicle, connect_vehicle
 
-QUEUE_PATH = "./queue.txt"
+QUEUE_PATH = "./src/queue.txt"
 
 # Start receiver.py as a subprocess
 def start_receiver():
@@ -26,14 +26,13 @@ receiver_thread.start()
 # Connect to vehicle on startup
 vehicle = connect_vehicle()
 
-# Alais for commands
+# Alais for commands. Keys are declared function's names and values are recieved command values from sender. Exmaple: {"command": "fly"}
 functions = {
-    "arm_and_takeoff": MyVehicle.arm_and_takeoff,
-    "takeoff": MyVehicle.arm_and_takeoff,
-    "fly": MyVehicle.fly,
-    "yaw": MyVehicle.yaw,
-    "change_mode": MyVehicle.change_mode,
-    "mode_change": MyVehicle.change_mode,
+    "arm": ["arm"],
+    "arm_and_takeoff": ["takeoff", "arm_and_takeoff"],
+    "fly": ["fly", "move"],
+    "yaw": ["yaw", "rotate"],
+    "change_mode": ["mode", "change mode", "change_mode", "mode change", "mode_change"],
 }
 
 # Initialize current command variable, pause status and callback for commands
@@ -87,18 +86,20 @@ while True:
             # Try to pick a new command (None if queue is empty)
             current_command = queue.pop_queue()
         else:
-            # Get command function
-            func_name = current_command["command"]
-            # Check if command is in alais dictionary
-            if func_name in functions:
-                # Get function and arguments
-                func = functions[func_name]
+            # Get function name if command name in alais dictionary
+            try:
+                print(current_command["command"])
+                func_name = next(key for key, value in functions.items() if current_command["command"] in value)
+            # Catch exception if command alais name is not in dictionary 
+            except StopIteration:
+                print("WARNING: Unknown command. Skiped.")
+            # Run command
+            else:
+                # Get arguments
                 args = {k: v for k, v in current_command.items() if k != 'command'}
+                print(f"args = {args}")
                 # Call function and get callback to check command status 
                 callback_command = getattr(vehicle, func_name)(**args)
-            else:
-                # Skip unknown command 
-                print("WARNING: Unknown command. Skiped.")
     
     # Checking command status. 
     # Existence of a callback_command implies that current_command is being executed right now.
