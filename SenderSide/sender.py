@@ -30,6 +30,7 @@ def connect_to_drone(sock):
             break
         except socket.error:
             logging.warning("Connection failed. Retrying...")
+            time.sleep(0.1)
 
 
 def move_file(source_path, destination_folder):
@@ -65,6 +66,7 @@ def send_json(sock, file_path):
                 ack = sock.recv(2)
                 if ack != b"OK":
                     logging.warning(f"Unable to send length of JSON file: {file_path}. Retrying...")
+                    time.sleep(1)
                     continue
                 
                 # Send the JSON string
@@ -81,6 +83,7 @@ def send_json(sock, file_path):
             except socket.error as e:
                 logging.warning("Connection lost. Retrying..")
                 return e
+            time.slee(0.1)
 
     except (ValueError, json.JSONDecodeError) as e:
         logging.warning(f"Invalid JSON file: {file_path}. Skipping..")
@@ -90,7 +93,7 @@ def send_json(sock, file_path):
 
 if __name__ == "__main__":
     # Setting logging
-    logging.basicConfig(filename='sender.log', level=logging.DEBUG)
+    logging.basicConfig(filename='sender.log', level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     logging.info("sender.py activated")
     
     # Create a socket object and connect it to the drone
@@ -101,9 +104,10 @@ if __name__ == "__main__":
         # Check for JSON files in the directory
         json_files = [f for f in os.listdir(waiting_directory) if f.endswith(".json")]
         if not json_files:
-            logging.infoer.logging.info_rt("No JSON files to send. Waiting... ", 0.5)
-            continue
-        logging.infoer.counter = 0
+            logging.warning("No JSON files to send. Waiting... ")
+            while not json_files:
+                json_files = [f for f in os.listdir(waiting_directory) if f.endswith(".json")]
+                time.sleep(0.01)
 
         # Find the oldest JSON file
         oldest_file = min(json_files, key=lambda f: os.path.getctime(os.path.join(waiting_directory, f)))

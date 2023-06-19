@@ -1,5 +1,5 @@
 '''
-This module responsible for operation with queue.txt file.
+This module responsible for operation with queue files.
 Supposed to automatically create queue.txt file and handle errors, that might occur when run.py and receiver.py will compete for it.
 
 Available commands: 
@@ -7,19 +7,29 @@ get_queue()       -> list[dict] returns current list of commands in queue
 append_to_queue() -> list[dict] returns updated list of commands in queue
 pop_queue()       -> dict       returns and delete first command in queue
 is_empty()        -> bool       returns boolean indicating if queue is empty
+
+special is optional argument for calling queue of special commands
+
+Usage exapmles:
+drone_queue.get_queue(special=True) - Returns special queue as python list[dict]
+drone_queue.append_to_queue(dict) - Apeend to regular queue of commands python dict. Returns regular queue as python list[dict]
 '''
 
 import time
 import json 
+from typing import List
 
-QUEUE_PATH = './src/queue.txt'
+
+QUEUE_COMMAND_PATH = './queues/queue_command.txt'
+QUEUE_SPECIAL_PATH = './queues/queue_special.txt'
 
 
 def queue_operation(operation):
-    def wrapper(*args, path=QUEUE_PATH):
+    def wrapper(*args, **kwargs):
         # Try to open the queue file for writing, retrying if necessary
         while True:
             try:
+                path = QUEUE_SPECIAL_PATH if kwargs.get("special", False) else QUEUE_COMMAND_PATH
                 with open(path, 'r+') as f:
                      # Check if the file has any content
                     f.seek(0)
@@ -35,20 +45,28 @@ def queue_operation(operation):
                     return(operation(f, *args))
                 
             except FileNotFoundError:
-                # If the file doesn't exist, create it with empty list and retry
+                # If the file doesn't exist or corrupted, create it with empty list and retry
                 with open(path, 'w') as f:
                     f.write('[]\n')
 
             except PermissionError:
                 # If the file is locked, wait for a short time and retry
-                print("File is locked. Retrying in 0.2 second...")
-                time.sleep(0.2)
-    
+                print("File is locked. Retrying in 0.1 second...")
+                time.sleep(0.1)
+            
+            except json.decoder.JSONDecodeError:
+                # If the file doesn't exist or corrupted, create it with empty list and retry
+                with open(path, 'w') as f:
+                    f.write('[]\n')
+            
+            except Exception as e:
+                print("ERROR: Unknown exception:", e)
+
     return wrapper
 
 
 @queue_operation
-def get_queue(f) -> list[dict]:
+def get_queue(f) -> List[dict]:
     # Return a queue
     return json.load(f)
 
@@ -71,7 +89,7 @@ def pop_queue(f) -> dict:
 
 
 @queue_operation
-def append_to_queue(f, json_data: dict) -> list[dict]: 
+def append_to_queue(f, json_data: dict) -> List[dict]: 
     # Append new command in the end of queue. json_data - dict (json.loads(str))
     queue = json.load(f)
 
@@ -118,12 +136,11 @@ def delete_command(f, command):
 def check_command(f, command):
     # Check if a certain commands in the queue
     queue = json.load(f)
-    
+
     # Check for commands
     if any(item.get("command") == command for item in queue):
         return True
     return False
-
 
     
 @queue_operation

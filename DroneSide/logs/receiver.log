@@ -1,0 +1,7 @@
+INFO:root:Waiting for sender to connect...
+INFO:root:Sender connected!
+INFO:root:Received regular command: command: fly, direction: north, distance: 20
+INFO:root:Received special command: command: skip
+INFO:root:Received regular command: command: fly, direction: north, distance: 20
+INFO:root:Received regular command: command: fly, direction: north, distance: 20
+WARNING:root:INTERRUPTION: Keyboard interrupt. Closing...

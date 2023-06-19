@@ -1,0 +1,41 @@
+[
+    {
+        "command": "arm"
+    },
+    {
+        "command": "takeoff",
+        "target_alt": 15
+    },
+    {
+        "command": "mode",
+        "mode": "GUIDED"
+    },
+    {
+        "command": "fly",
+        "direction": "left",
+        "distance": 15
+    },
+    {
+        "command": "yaw",
+        "heading": 50,
+        "relative": 0
+    },
+    {
+        "command": "fly",
+        "direction": "backward",
+        "distance": 20
+    },
+    {
+        "command": "yaw",
+        "heading": -80,
+        "relative": 1
+    },
+    {
+        "command": "fly",
+        "direction": "east",
+        "distance": 14
+    },
+    {
+        "command": "land"
+    }
+]

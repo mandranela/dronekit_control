@@ -4,7 +4,7 @@ import json
 import time
 import logging
 
-import queue
+import drone_queue
 
 
 ### PUBLIC PROPERTIES ###
@@ -12,6 +12,24 @@ import queue
 # Receiver IP address and port
 RECEIVER_IP = "127.0.0.1"
 RECEIVER_PORT = 9001
+
+# Alais for commands. Keys are declared function's names and values are recieved command values from sender. Exmaple: {"command": "fly"}
+functions = {
+    "arm": ["arm", "ARM"],
+    "takeoff": ["takeoff", "TAKEOFF"],
+    "fly": ["fly", "move", "FLY", "MOVE"],
+    "yaw": ["yaw", "rotate", 'YAW', "ROTATE"],
+    "RTL": ["rtl", "RTL"],
+    "land": ["land", "LAND"],
+    "change_mode": ["mode", "change mode", "change_mode", "mode change", "mode_change", "MODE", "CHANGE_MODE"],
+}
+# Alais for special commands.
+specials = {
+    "pause": ["pause"],
+    "resume": ["resume"],
+    "clear": ["clear"],
+    "skip": ["skip"]
+}
 
 
 def connect_to_drone(sock):
@@ -52,8 +70,16 @@ def get_json(connection):
         # Convert the JSON string to data
         json_data = json.loads(json_str)
 
-        queue.append_to_queue(json_data)
-        logging.info(f"Received command: " + ', '.join([f'{key}: {value}' for key, value in json_data.items()]))
+        # Check command and append in corresponding queue
+        if "command" in json_data:
+            if any(json_data["command"] in value_list for value_list in specials.values()):
+                drone_queue.append_to_queue(json_data, special=True)
+                logging.info(f"Received special command: " + ', '.join([f'{key}: {value}' for key, value in json_data.items()]))
+            elif any(json_data["command"] in value_list for value_list in functions.values()):
+                drone_queue.append_to_queue(json_data)
+                logging.info(f"Received regular command: " + ', '.join([f'{key}: {value}' for key, value in json_data.items()]))
+            else:
+                logging.warning(f"Received invalid command: " + ', '.join([f'{key}: {value}' for key, value in json_data.items()]))
         
         return True
 
@@ -71,7 +97,7 @@ def get_json(connection):
 ### MAIN FUNCTION ###
 def receive():
     # Configurate logging 
-    logging.basicConfig(filename='receiver.log', level=logging.DEBUG)
+    logging.basicConfig(filename='./logs/receiver.log', level=logging.DEBUG)
     # Create a socket object
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     # Bind the socket to a specific IP address and port, set timeout for accept
@@ -87,9 +113,8 @@ def receive():
 
 
 if __name__ == "__main__":
-    # Testing 
     try:
         receive()
     except KeyboardInterrupt:
-        logging.warning("\INTERRUPTION: Keyboard interrupt. Closing...")
+        logging.warning("INTERRUPTION: Keyboard interrupt. Closing...")
         exit()
